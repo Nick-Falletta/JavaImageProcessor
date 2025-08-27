@@ -1,4 +1,3 @@
-````markdown
 # Image Studio
 
 Image Studio is a lightweight Java Swing application for image processing and editing.  
@@ -64,3 +63,4 @@ src/
 └── util/
     └── ImageIOUtils.java     # File I/O utilities for PNG and JPEG
 ```
+

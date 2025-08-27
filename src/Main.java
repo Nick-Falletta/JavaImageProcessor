@@ -1,7 +1,8 @@
-import gui.GUI;
+// === Application Entry Point ===
+import gui.MainWindow;
 
 public class Main {
     public static void main(String[] args) {
-        new GUI();
+        MainWindow.launch();
     }
 }

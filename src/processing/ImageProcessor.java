@@ -1,76 +1,69 @@
+// === Document Model (Image, Undo/Redo, Apply Operations) ===
 package processing;
 
-import java.awt.*;
 import java.awt.image.BufferedImage;
-import javax.swing.*;
+import java.io.File;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
-public class ImageProcessor {
+public final class ImageProcessor {
+
     private BufferedImage image;
-    private String filter;
+    private BufferedImage original;
+    private File sourceFile;
 
-    public ImageProcessor() {
-        this.filter = Filter.FILTER_TYPES.keySet().toArray(new String[0])[0];
+    private final Deque<BufferedImage> undo = new ArrayDeque<>();
+    private final Deque<BufferedImage> redo = new ArrayDeque<>();
+
+    public void load(BufferedImage img, File file) {
+        this.image = Operations.copyOf(img);
+        this.original = Operations.copyOf(img);
+        this.sourceFile = file;
+        undo.clear(); redo.clear();
     }
 
-    public void execute(JLabel imageContainer) {
-        new SwingWorker<Void, BufferedImage>() {
-            @Override
-            protected Void doInBackground() throws Exception {
-                Filter.apply(image, filter);
-                return null;
-            }
-
-            @Override
-            protected void done() {
-                imageContainer.setIcon(new ImageIcon(image));
-            }
-        }.execute();
+    public String fileNameOr(String fallback) {
+        return sourceFile != null ? sourceFile.getName() : fallback;
     }
 
-    public String getFilter() {
-        return filter;
+    public String windowTitle() {
+        return "Image Studio — " + (sourceFile != null ? sourceFile.getName() : "Untitled");
     }
 
-    public void setFilter(String filter) {
-        this.filter = filter;
-    }
+    public BufferedImage getImage() { return image; }
 
-    public BufferedImage getImage() {
+    public BufferedImage apply(Operations.Operation op) {
+        if (image == null) return null;
+        pushUndo(image);
+        image = op.apply(image);
+        redo.clear();
         return image;
     }
 
-    public void setImage(BufferedImage image) {
-        if(image != null) {
-            this.image = image;
-        }
+    public void revert() {
+        if (original == null) return;
+        pushUndo(image);
+        image = Operations.copyOf(original);
+        redo.clear();
     }
 
-    public static BufferedImage scaleImage(BufferedImage image, int maxWidth, int maxHeight) {
-        int originalWidth = image.getWidth(null);
-        int originalHeight = image.getHeight(null);
-
-        double scale = Math.min((double) maxWidth / originalWidth, (double) maxHeight / originalHeight);
-        int newWidth = (int) (originalWidth * scale);
-        int newHeight = (int) (originalHeight * scale);
-
-        Image scaledImage = image.getScaledInstance(newWidth, newHeight, BufferedImage.SCALE_SMOOTH);
-        BufferedImage newImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = newImage.createGraphics();
-        g.drawImage(scaledImage, 0, 0, null);
-        g.dispose();
-
-        return newImage;
+    public void undo() {
+        if (!canUndo()) return;
+        redo.push(Operations.copyOf(image));
+        image = undo.pop();
     }
 
-    public static BufferedImage deepCopy(BufferedImage original) {
-        BufferedImage copy = new BufferedImage(
-                original.getWidth(),
-                original.getHeight(),
-                original.getType()
-        );
-        Graphics2D g2d = copy.createGraphics();
-        g2d.drawImage(original, 0, 0, null);
-        g2d.dispose();
-        return copy;
+    public void redo() {
+        if (!canRedo()) return;
+        undo.push(Operations.copyOf(image));
+        image = redo.pop();
+    }
+
+    public boolean canUndo() { return !undo.isEmpty(); }
+    public boolean canRedo() { return !redo.isEmpty(); }
+
+    private void pushUndo(BufferedImage img) {
+        undo.push(Operations.copyOf(img));
+        while (undo.size() > 20) undo.removeLast();
     }
 }
